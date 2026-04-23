@@ -18,3 +18,7 @@ where = ["src"]
 # а вот тут — «команда» для запуска приложения
 [project.scripts]
 main = "app.main:main"
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"

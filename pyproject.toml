@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "size-compressor"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = [
+    "maxapi>=1.0.0",
+    "python-dotenv>=1.2.2",
+]
+# dependencies = [...]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# а вот тут — «команда» для запуска приложения
+[project.scripts]
+main = "app.main:main"

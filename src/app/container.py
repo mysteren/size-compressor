@@ -1,6 +1,6 @@
-from app.adapters.max_bot.client import MaxBotClient
+from .adapters.max_bot.client import MaxBotClient
 
 
 class AppContainer:
     def __init__(self, bot_token: str):
-        self.BotClient = MaxBotClient(bot_token)
+        self.BotClient: MaxBotClient = MaxBotClient(bot_token)

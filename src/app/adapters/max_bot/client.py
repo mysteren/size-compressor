@@ -5,21 +5,23 @@ from maxapi import Bot, Dispatcher, F
 from maxapi.types import BotStarted, Command, MessageCreated, OtherAttachmentPayload
 from maxapi.types.attachments.attachment import AttachmentType
 
+from app.use_case.attach import AttachUseCase
+
 
 class MaxBotClient:
-    def __init__(self, bot_token: str):
+    def __init__(self, bot_token: str, attach_use_case: AttachUseCase):
         """
         Инициализация клиента для бота MAX.
         Args:
             bot_token: Секретный токен вашего бота, полученный от @MasterBot.
         """
-        print(f"Инициализация бота с токеном: {bot_token}")
+
         # 1. Создаем экземпляр класса Bot из библиотеки
         self.bot: Bot = Bot(token=bot_token)
         # 2. Создаем Dispatcher для маршрутизации событий
         self.dispatcher: Dispatcher = Dispatcher()
-        # 3. Здесь же можно зарегистрировать обработчики команд,
-        #    но для чистоты кода сделаем это в отдельном методе.
+
+        self.attach_use_case: AttachUseCase = attach_use_case
 
     # --- Методы-обработчики ---
     async def cmd_start(self, event: BotStarted):
@@ -55,14 +57,38 @@ class MaxBotClient:
                     if type == AttachmentType.FILE and isinstance(
                         payload, OtherAttachmentPayload
                     ):
-                        # type = payload.type
-                        #
-                        path = Path("./uploads")
+                        filename: str = getattr(attach, "filename", "")
+                        size: int = getattr(attach, "size", 0)
 
-                        result = await bot.download_file(
-                            url=payload.url, destination=path
+                        is_pdf, size_string = self.attach_use_case.check_pdf(
+                            filename=filename, size=size
                         )
-                        pprint.pp(result)
+
+                        if is_pdf:
+                            path = Path("./uploads")
+                            result = await bot.download_file(
+                                url=payload.url, destination=path
+                            )
+
+                            new_size = self.attach_use_case.compress_pdf(result)
+
+                            # pprint.pp(result)
+                            message = (
+                                f"исходный размер: {size_string}, результат: {new_size}"
+                            )
+                        else:
+                            message = "файл имеет неразрешенный формат, такой как .pdf"
+
+                        _ = await event.message.answer(message)
+
+                        # path = Path("./uploads")
+
+                        # result = await bot.download_file(
+                        #     url=payload.url, destination=path
+                        # )
+
+                        # await event.message.answer("Получено вложение ")
+                        # pprint.pp(result)
 
                     # if payload:
                     #     if hasattr(payload, 'type') and payload.type == UploadType.FILE

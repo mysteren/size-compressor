@@ -1,9 +1,22 @@
 import pprint
 from pathlib import Path
+from typing import TypedDict
 
 from maxapi import Bot, Dispatcher, F
-from maxapi.types import BotStarted, Command, MessageCreated, OtherAttachmentPayload
+from maxapi.context.context import json
+from maxapi.enums.upload_type import UploadType
+from maxapi.types import (
+    Attachment,
+    BotStarted,
+    Command,
+    InputMedia,
+    InputMediaBuffer,
+    MessageCreated,
+    OtherAttachmentPayload,
+)
 from maxapi.types.attachments.attachment import AttachmentType
+from maxapi.utils.message import AttachmentUpload
+from pydantic import BaseModel
 
 from app.use_case.attach import AttachUseCase
 
@@ -50,7 +63,7 @@ class MaxBotClient:
                 attachments = message.body.attachments
 
                 for attach in attachments:
-                    pprint.pp(attach)
+                    # pprint.pp(attach)
                     payload = attach.payload
                     type = attach.type
 
@@ -60,26 +73,72 @@ class MaxBotClient:
                         filename: str = getattr(attach, "filename", "")
                         size: int = getattr(attach, "size", 0)
 
-                        is_pdf, size_string = self.attach_use_case.check_pdf(
+                        is_pdf, _ = self.attach_use_case.check_pdf(
                             filename=filename, size=size
                         )
 
+                        answer_attachments: list[
+                            Attachment
+                            | InputMedia
+                            | InputMediaBuffer
+                            | AttachmentUpload
+                        ] = []
+
                         if is_pdf:
-                            path = Path("./uploads")
-                            result = await bot.download_file(
-                                url=payload.url, destination=path
-                            )
+                            # print(payload)
 
-                            new_size = self.attach_use_case.compress_pdf(result)
+                            url = payload.url
 
-                            # pprint.pp(result)
-                            message = (
-                                f"исходный размер: {size_string}, результат: {new_size}"
-                            )
+                            # print(url)
+
+                            try:
+                                path = Path("./uploads")
+                                result = await bot.download_file(
+                                    url=url, destination=path
+                                )
+
+                                new_size, new_path = self.attach_use_case.compress_pdf(
+                                    result
+                                )
+
+                                upload_url = await bot.get_upload_url(
+                                    UploadType.FILE,
+                                )
+
+                                upload_raw = await bot.upload_file(
+                                    url=upload_url.url,
+                                    path=new_path,
+                                    type=UploadType.FILE,
+                                )
+
+                                class UploadDto(BaseModel):
+                                    fileId: int
+                                    token: str
+
+                                upload_data = UploadDto.model_validate_json(upload_raw)
+
+                                new_attach = Attachment(
+                                    type=AttachmentType.FILE,
+                                    payload=OtherAttachmentPayload(
+                                        url=upload_url.url, token=upload_data.token
+                                    ),
+                                )
+
+                                # pprint.pp(new_attach, indent=2)
+
+                                answer_attachments.append(new_attach)
+
+                                # pprint.pp(upload_result)
+                                message = f"Успешное сжатие на {self.attach_use_case.compression_ratio(size, new_size):.1f}%"
+                            except Exception as ex:
+                                message = f"Ошибка: {str(ex)}"
+
                         else:
                             message = "файл имеет неразрешенный формат, такой как .pdf"
 
-                        _ = await event.message.answer(message)
+                        _ = await event.message.answer(
+                            text=message, attachments=answer_attachments
+                        )
 
                         # path = Path("./uploads")
 
@@ -105,7 +164,7 @@ class MaxBotClient:
 
         # print(attachments)
 
-        _ = await event.message.answer("Получено вложение")
+        # _ = await event.message.answer("Получено вложение")
 
     # async def echo_all(self, event: MessageCreated):
     #     """Обработчик любого текстового сообщения"""

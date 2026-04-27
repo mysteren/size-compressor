@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from fitz import os
+
 
 class FileUtils:
     def human_readable_size(self, size: int, binary: bool = True) -> str:

@@ -82,17 +82,20 @@ class MaxBotClient:
                         if is_pdf:
                             url = payload.url
 
+                            old_file = None
+                            new_file = None
+
                             try:
-                                path = Path("./uploads")
-                                result = await bot.download_file(
-                                    url=url, destination=path
+                                folder = Path("./uploads")
+                                old_file = await bot.download_file(
+                                    url=url, destination=folder
                                 )
 
-                                new_size, new_path = self.attach_use_case.compress_pdf(
-                                    result
+                                new_size, new_file = self.attach_use_case.compress_pdf(
+                                    old_file
                                 )
 
-                                ratio = -1 * self.attach_use_case.compression_ratio(
+                                ratio = self.attach_use_case.compression_ratio(
                                     size, new_size
                                 )
 
@@ -103,7 +106,7 @@ class MaxBotClient:
 
                                     upload_raw = await bot.upload_file(
                                         url=upload_url.url,
-                                        path=new_path,
+                                        path=new_file,
                                         type=UploadType.FILE,
                                     )
 
@@ -123,9 +126,12 @@ class MaxBotClient:
                                 else:
                                     message = f"⚠️ Сжатие файла не удалось, размер файла превысил исходный на {ratio:.1f}%"
 
-                                # pprint.pp(upload_result)
                             except Exception as ex:
                                 message = f"❌ Ошибка: {str(ex)}"
+                            finally:
+                                self.attach_use_case.removeTrashFiles(
+                                    old_file, new_file
+                                )
 
                         else:
                             message = (

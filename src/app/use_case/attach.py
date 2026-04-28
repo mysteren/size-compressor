@@ -42,7 +42,16 @@ class AttachUseCase:
         return (size, new_path)
 
     def compression_ratio(self, original: int, compressed: int):
-        return (original - compressed) / original * 100
+        return (compressed - original) / original * 100
 
     def getUploadDTO(self, raw: str):
         return UploadDto.model_validate_json(raw)
+
+    def removeTrashFiles(self, *paths: Path | str | None):
+        for path in paths:
+            if path is None:
+                continue
+            try:
+                Path(path).unlink(missing_ok=True)
+            except Exception:
+                pass  # не получилось удалить — ничего не делаем

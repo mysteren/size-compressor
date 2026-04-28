@@ -2,8 +2,15 @@ import os
 from pathlib import Path
 from urllib.parse import unquote
 
+from pydantic import BaseModel
+
 from app.utils.file import FileUtils
 from app.utils.pdf import PdfUtils
+
+
+class UploadDto(BaseModel):
+    fileId: int
+    token: str
 
 
 class AttachUseCase:
@@ -36,3 +43,6 @@ class AttachUseCase:
 
     def compression_ratio(self, original: int, compressed: int):
         return (original - compressed) / original * 100
+
+    def getUploadDTO(self, raw: str):
+        return UploadDto.model_validate_json(raw)

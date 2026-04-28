@@ -56,14 +56,9 @@ class MaxBotClient:
         bot = event.bot
         message = event.message
         if bot:
-            # url = await event.bot.get_upload_url(UploadType.FILE)
-            # print(url)
-
             if message.body and message.body.attachments:
                 attachments = message.body.attachments
-
                 for attach in attachments:
-                    # pprint.pp(attach)
                     payload = attach.payload
                     type = attach.type
 
@@ -85,11 +80,7 @@ class MaxBotClient:
                         ] = []
 
                         if is_pdf:
-                            # print(payload)
-
                             url = payload.url
-
-                            # print(url)
 
                             try:
                                 path = Path("./uploads")
@@ -101,41 +92,46 @@ class MaxBotClient:
                                     result
                                 )
 
-                                upload_url = await bot.get_upload_url(
-                                    UploadType.FILE,
+                                ratio = -1 * self.attach_use_case.compression_ratio(
+                                    size, new_size
                                 )
 
-                                upload_raw = await bot.upload_file(
-                                    url=upload_url.url,
-                                    path=new_path,
-                                    type=UploadType.FILE,
-                                )
+                                if size > new_size:
+                                    upload_url = await bot.get_upload_url(
+                                        UploadType.FILE,
+                                    )
 
-                                class UploadDto(BaseModel):
-                                    fileId: int
-                                    token: str
+                                    upload_raw = await bot.upload_file(
+                                        url=upload_url.url,
+                                        path=new_path,
+                                        type=UploadType.FILE,
+                                    )
 
-                                upload_data = UploadDto.model_validate_json(upload_raw)
+                                    upload_data = self.attach_use_case.getUploadDTO(
+                                        upload_raw
+                                    )
 
-                                new_attach = Attachment(
-                                    type=AttachmentType.FILE,
-                                    payload=OtherAttachmentPayload(
-                                        url=upload_url.url, token=upload_data.token
-                                    ),
-                                )
-
-                                # pprint.pp(new_attach, indent=2)
-
-                                answer_attachments.append(new_attach)
+                                    new_attach = Attachment(
+                                        type=AttachmentType.FILE,
+                                        payload=OtherAttachmentPayload(
+                                            url=upload_url.url, token=upload_data.token
+                                        ),
+                                    )
+                                    #
+                                    answer_attachments.append(new_attach)
+                                    message = f"✅ Успешное сжатие: {ratio:.1f}%"
+                                else:
+                                    message = f"⚠️ Сжатие файла не удалось, размер файла превысил исходный на {ratio:.1f}%"
 
                                 # pprint.pp(upload_result)
-                                message = f"Успешное сжатие на {self.attach_use_case.compression_ratio(size, new_size):.1f}%"
                             except Exception as ex:
-                                message = f"Ошибка: {str(ex)}"
+                                message = f"❌ Ошибка: {str(ex)}"
 
                         else:
-                            message = "файл имеет неразрешенный формат, такой как .pdf"
-
+                            message = (
+                                "⚠️ Файл имеет неразрешенный формат, такой как .pdf"
+                            )
+                        # ✅
                         _ = await event.message.answer(
                             text=message, attachments=answer_attachments
                         )

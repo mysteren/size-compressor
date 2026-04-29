@@ -113,6 +113,8 @@ info "Настройки деплоя:"
 echo "  Пользователь: $SERVER_USER"
 echo "  Сервер: $SERVER_IP"
 echo "  Путь проекта: $SERVER_PROJECT_PATH"
+echo "  Название сервиса PM2: $PM2_SERVICE_NAME"
+echo "  Путь node: $NODE_PATH"
 
 # ============================================
 # ЗАГРУЗКА ФАЙЛОВ
@@ -144,6 +146,29 @@ else
 fi
 
 # ============================================
+# ПЕРЕЗАПУСК ПРИЛОЖЕНИЯ
+# ============================================
+
+title "Перезапуск приложения"
+
+if [ -z "$PM2_SERVICE_NAME" ]; then
+    info "PM2_SERVICE_NAME не указан, пропускаю перезапуск"
+else
+    RESTART_CMD="$NODE_PATH/node $NODE_PATH/pm2 restart $PM2_SERVICE_NAME"
+    log "Выполняю перезапуск... ${LIGHT_SILVER}"
+
+    RESTART_START_TIME=$(date +%s)
+    if ssh $SERVER_USER@$SERVER_IP " $RESTART_CMD"; then
+        RESTART_END_TIME=$(date +%s)
+        RESTART_DURATION=$((RESTART_END_TIME - RESTART_START_TIME))
+        success "Приложение успешно перезапущено ($RESTART_DURATION сек)"
+    else
+        error "Ошибка при перезапуске приложения"
+        exit 1
+    fi
+fi
+
+# ============================================
 # ЗАВЕРШЕНИЕ
 # ============================================
 
@@ -154,14 +179,5 @@ echo "Сервер: $SERVER_IP"
 echo "Время начала: $(date -d @$SCRIPT_START_TIME '+%H:%M:%S')"
 echo "Время завершения: $(date '+%H:%M:%S')"
 echo "📊 Общее время выполнения: $(get_elapsed_time)"
-
-
-
-# echo -e "📊 Статистика выполнения:${RESET}"
-
-# if [ ! -z "$RESTART_DURATION" ]; then
-#     echo "Перезапуск приложения: $RESTART_DURATION сек"
-# fi
-# echo "Итого: $(get_elapsed_time)"
 
 exit 0

@@ -154,11 +154,10 @@ title "Перезапуск приложения"
 if [ -z "$PM2_SERVICE_NAME" ]; then
     info "PM2_SERVICE_NAME не указан, пропускаю перезапуск"
 else
-    RESTART_CMD="$NODE_PATH/node $NODE_PATH/pm2 restart $PM2_SERVICE_NAME"
     log "Выполняю перезапуск... ${LIGHT_SILVER}"
 
     RESTART_START_TIME=$(date +%s)
-    if ssh $SERVER_USER@$SERVER_IP " $RESTART_CMD"; then
+    if ssh "$SERVER_USER@$SERVER_IP" "bash -l -c 'pm2 restart $PM2_SERVICE_NAME'"; then
         RESTART_END_TIME=$(date +%s)
         RESTART_DURATION=$((RESTART_END_TIME - RESTART_START_TIME))
         success "Приложение успешно перезапущено ($RESTART_DURATION сек)"

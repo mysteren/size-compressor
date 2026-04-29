@@ -8,6 +8,7 @@ _ = load_dotenv()
 
 # Читаем нужные переменные
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
+DB_PATH = os.getenv("DB_PATH", "./data/app.db")
 
 # Хорошая практика: проверять, загрузилась ли обязательная переменная
 if not BOT_TOKEN:

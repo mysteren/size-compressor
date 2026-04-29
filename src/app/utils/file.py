@@ -1,3 +1,6 @@
+# app/utils/file.py
+from __future__ import annotations
+
 from pathlib import Path
 
 from fitz import os

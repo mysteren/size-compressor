@@ -157,6 +157,7 @@ else
     log "Выполняю перезапуск... ${LIGHT_SILVER}"
 
     RESTART_START_TIME=$(date +%s)
+    # "export PATH=\"\$HOME/.local/share/fnm:\$PATH\" && eval \"\$(fnm env)\" && pm2 restart '$PM2_SERVICE_NAME'"; then
     if ssh "$SERVER_USER@$SERVER_IP" "source ~/.nvm/nvm.sh && pm2 restart $PM2_SERVICE_NAME"; then
         RESTART_END_TIME=$(date +%s)
         RESTART_DURATION=$((RESTART_END_TIME - RESTART_START_TIME))

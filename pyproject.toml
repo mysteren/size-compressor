@@ -24,5 +24,10 @@ where = ["src"]
 start = "app.main:main"
 
 [tool.pyright]
+extraPaths = ["src"]
 venvPath = "."
 venv = ".venv"
+
+[dependency-groups]
+dev = [
+]

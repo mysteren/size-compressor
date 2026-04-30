@@ -50,7 +50,7 @@ class PdfUtils:
         self,
         input_path: Path,
         output_path: Path,
-        quality=70,
+        quality: int = 70,
         dpi_threshold: int = 150,
         dpi_target: int = 120,  # А4 print-to-screen оптимум
     ) -> int:

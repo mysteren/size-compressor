@@ -1,9 +1,6 @@
-import pprint
 from pathlib import Path
-from typing import TypedDict
 
 from maxapi import Bot, Dispatcher, F
-from maxapi.context.context import json
 from maxapi.enums.upload_type import UploadType
 from maxapi.types import (
     Attachment,
@@ -16,13 +13,15 @@ from maxapi.types import (
 )
 from maxapi.types.attachments.attachment import AttachmentType
 from maxapi.utils.message import AttachmentUpload
-from pydantic import BaseModel
 
 from app.use_case.attach import AttachUseCase
+from app.use_case.user import UserUseCase
 
 
 class MaxBotClient:
-    def __init__(self, bot_token: str, attach_use_case: AttachUseCase):
+    def __init__(
+        self, bot_token: str, attach_use_case: AttachUseCase, user_use_case: UserUseCase
+    ):
         """
         Инициализация клиента для бота MAX.
         Args:
@@ -30,29 +29,33 @@ class MaxBotClient:
         """
 
         # 1. Создаем экземпляр класса Bot из библиотеки
-        self.bot: Bot = Bot(token=bot_token)
+        self._bot: Bot = Bot(token=bot_token)
         # 2. Создаем Dispatcher для маршрутизации событий
-        self.dispatcher: Dispatcher = Dispatcher()
+        self._dispatcher: Dispatcher = Dispatcher()
 
-        self.attach_use_case: AttachUseCase = attach_use_case
+        self._attach_use_case: AttachUseCase = attach_use_case
+
+        self._user_use_case: UserUseCase = user_use_case
 
     # --- Методы-обработчики ---
-    async def cmd_start(self, event: BotStarted):
+    async def _cmd_start(self, event: BotStarted):
         """Обработчик команды /start"""
         name = event.user.first_name
+        _, user_id = event.get_ids()
 
-        print("bot start")
+        _ = await self._user_use_case.user_init(user_id=user_id, name=name)
 
         if event.bot:
             _ = await event.bot.send_message(
-                chat_id=event.chat_id, text=f"Привет, {name}! Я бот."
+                chat_id=event.chat_id,
+                text=f"Привет, {name}! я умею сжимать PDF файлы. Доступные команды: /help",
             )
 
-    async def cmd_help(self, event: MessageCreated):
+    async def _cmd_help(self, event: MessageCreated):
         """Обработчик команды /help"""
         _ = await event.message.answer("Доступные команды: /help")
 
-    async def on_attachment(self, event: MessageCreated):
+    async def _on_attachment(self, event: MessageCreated):
         bot = event.bot
         message = event.message
         if bot:
@@ -68,7 +71,7 @@ class MaxBotClient:
                         filename: str = getattr(attach, "filename", "")
                         size: int = getattr(attach, "size", 0)
 
-                        is_pdf, _ = self.attach_use_case.check_pdf(
+                        is_pdf, _ = self._attach_use_case.check_pdf(
                             filename=filename, size=size
                         )
 
@@ -91,11 +94,11 @@ class MaxBotClient:
                                     url=url, destination=folder
                                 )
 
-                                new_size, new_file = self.attach_use_case.compress_pdf(
+                                new_size, new_file = self._attach_use_case.compress_pdf(
                                     old_file
                                 )
 
-                                ratio = self.attach_use_case.compression_ratio(
+                                ratio = self._attach_use_case.compression_ratio(
                                     size, new_size
                                 )
 
@@ -110,7 +113,7 @@ class MaxBotClient:
                                         type=UploadType.FILE,
                                     )
 
-                                    upload_data = self.attach_use_case.getUploadDTO(
+                                    upload_data = self._attach_use_case.getUploadDTO(
                                         upload_raw
                                     )
 
@@ -129,7 +132,7 @@ class MaxBotClient:
                             except Exception as ex:
                                 message = f"❌ Ошибка: {str(ex)}"
                             finally:
-                                self.attach_use_case.removeTrashFiles(
+                                self._attach_use_case.removeTrashFiles(
                                     old_file, new_file
                                 )
 
@@ -142,49 +145,17 @@ class MaxBotClient:
                             text=message, attachments=answer_attachments
                         )
 
-                        # path = Path("./uploads")
-
-                        # result = await bot.download_file(
-                        #     url=payload.url, destination=path
-                        # )
-
-                        # await event.message.answer("Получено вложение ")
-                        # pprint.pp(result)
-
-                    # if payload:
-                    #     if hasattr(payload, 'type') and payload.type == UploadType.FILE
-
-                    # if (
-                    #     attach.payload
-                    #     and attach.payload.type
-                    #     and attach.payload.type == UploadType.FILE
-                    # ):
-                    #     url = attach.payload.url
-                    #     print(url)
-
-                    # url = event.bot.get_upload_url(UploadType.FILE)
-
-        # print(attachments)
-
-        # _ = await event.message.answer("Получено вложение")
-
-    # async def echo_all(self, event: MessageCreated):
-    #     """Обработчик любого текстового сообщения"""
-    #     if event.message.body and event.message.body.text:
-    #         text = event.message.body.text
-    #         _ = await event.message.answer(f"Вы написали: {text}")
-
     # --- Привязка обработчиков ---
     def _register_handlers(self):
         # Привязываем методы класса к событиям
-        self.dispatcher.bot_started()(self.cmd_start)
-        self.dispatcher.message_created(Command("help"))(self.cmd_help)
-        self.dispatcher.message_created(F.message.body.attachments)(self.on_attachment)
-
-        # self.dispatcher.message_created()(self.echo_all)
+        self._dispatcher.bot_started()(self._cmd_start)
+        self._dispatcher.message_created(Command("help"))(self._cmd_help)
+        self._dispatcher.message_created(F.message.body.attachments)(
+            self._on_attachment
+        )
 
     async def start(self):
         print("MaxBot started")
         self._register_handlers()
-        await self.bot.delete_webhook()
-        await self.dispatcher.start_polling(self.bot)
+        await self._bot.delete_webhook()
+        await self._dispatcher.start_polling(self._bot)
